@@ -50,8 +50,9 @@ async function resolveResearchInput(input: string) {
   }
 
   if (!["http:", "https:"].includes(url.protocol)) return input;
-  const hostname = url.hostname.toLowerCase();
-  const isPrivate =
+  const isPrivateHost = (hostnameValue: string) => {
+    const hostname = hostnameValue.toLowerCase();
+    return (
     hostname === "localhost" ||
     hostname === "0.0.0.0" ||
     hostname === "::1" ||
@@ -59,7 +60,10 @@ async function resolveResearchInput(input: string) {
     /^127\./.test(hostname) ||
     /^10\./.test(hostname) ||
     /^192\.168\./.test(hostname) ||
-    /^172\.(1[6-9]|2\d|3[01])\./.test(hostname);
+    /^172\.(1[6-9]|2\d|3[01])\./.test(hostname)
+    );
+  };
+  const isPrivate = isPrivateHost(url.hostname);
   if (isPrivate) throw new Error("That URL cannot be accessed. Please paste the article text instead.");
 
   const response = await fetch(url, {
@@ -68,6 +72,10 @@ async function resolveResearchInput(input: string) {
   });
   if (!response.ok) {
     throw new Error("The article could not be opened. Please paste its text instead.");
+  }
+  const finalUrl = new URL(response.url);
+  if (isPrivateHost(finalUrl.hostname)) {
+    throw new Error("That URL redirects to a location that cannot be accessed.");
   }
   const type = response.headers.get("content-type") ?? "";
   if (!type.includes("text/html") && !type.includes("text/plain")) {

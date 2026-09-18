@@ -156,10 +156,11 @@ function Index() {
   return (
     <div className="min-h-screen bg-background text-foreground">
       {sidebarOpen && (
-        <button
+        <Button
           type="button"
+          variant="ghost"
           aria-label="Close navigation"
-          className="fixed inset-0 z-30 bg-overlay md:hidden"
+          className="fixed inset-0 z-30 h-auto w-auto rounded-none bg-overlay hover:bg-overlay md:hidden"
           onClick={() => setSidebarOpen(false)}
         />
       )}
