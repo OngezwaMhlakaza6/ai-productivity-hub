@@ -37,6 +37,6 @@ Install the required dependencies.
 Configure any required AI/API credentials.
 Start the development server.
 Open the application in your web browser.
-Author
 
+Author
 Ongezwa Mhlakaza
