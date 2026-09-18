@@ -41,6 +41,55 @@ Topic or source material:
 ${input}`,
 };
 
+async function resolveResearchInput(input: string) {
+  let url: URL;
+  try {
+    url = new URL(input);
+  } catch {
+    return input;
+  }
+
+  if (!["http:", "https:"].includes(url.protocol)) return input;
+  const hostname = url.hostname.toLowerCase();
+  const isPrivate =
+    hostname === "localhost" ||
+    hostname === "0.0.0.0" ||
+    hostname === "::1" ||
+    hostname.endsWith(".local") ||
+    /^127\./.test(hostname) ||
+    /^10\./.test(hostname) ||
+    /^192\.168\./.test(hostname) ||
+    /^172\.(1[6-9]|2\d|3[01])\./.test(hostname);
+  if (isPrivate) throw new Error("That URL cannot be accessed. Please paste the article text instead.");
+
+  const response = await fetch(url, {
+    headers: { "User-Agent": "AI-Workplace-Productivity-Assistant/1.0" },
+    redirect: "follow",
+  });
+  if (!response.ok) {
+    throw new Error("The article could not be opened. Please paste its text instead.");
+  }
+  const type = response.headers.get("content-type") ?? "";
+  if (!type.includes("text/html") && !type.includes("text/plain")) {
+    throw new Error("That link is not a readable article. Please paste the article text instead.");
+  }
+  const raw = (await response.text()).slice(0, 150_000);
+  const text = type.includes("text/html")
+    ? raw
+        .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, " ")
+        .replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, " ")
+        .replace(/<[^>]+>/g, " ")
+        .replace(/&nbsp;/gi, " ")
+        .replace(/&amp;/gi, "&")
+        .replace(/&#39;/gi, "'")
+        .replace(/&quot;/gi, '"')
+        .replace(/\s+/g, " ")
+        .trim()
+    : raw.trim();
+  if (text.length < 100) throw new Error("The article had too little readable text. Please paste it instead.");
+  return `Source URL: ${url.toString()}\n\nExtracted article text:\n${text.slice(0, 45_000)}`;
+}
+
 function errorMessage(status: number, fallback: string) {
   if (status === 400) return "The request could not be processed. Please shorten or revise your input.";
   if (status === 401) return "AI access is not configured correctly.";
@@ -72,9 +121,10 @@ export const Route = createFileRoute("/api/assistant")({
         const { tool, input, tone } = parsed.data;
 
         try {
+          const resolvedInput = tool === "research" ? await resolveResearchInput(input) : input;
           const result = streamText({
             model: gateway.model,
-            prompt: prompts[tool](input, tone),
+            prompt: prompts[tool](resolvedInput, tone),
             maxRetries: 0,
             abortSignal: request.signal,
             providerOptions: {
